@@ -27,7 +27,7 @@ LOG_FORMAT = '%(levelname)s: %(message)s'
 logging.basicConfig(format=LOG_FORMAT)
 logger = logging.getLogger(__name__)
 formatter = logging.Formatter(LOG_FORMAT)
-handler = logging.handlers.RotatingFileHandler(os.path.join(CWD,'external_script.log'), maxBytes=10**6, backupCount=3)
+handler = logging.handlers.RotatingFileHandler(os.path.join(CWD,'backfill.log'), maxBytes=10**6, backupCount=3)
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
