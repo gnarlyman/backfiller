@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 from pprint import pprint
 from itertools import groupby
 from operator import itemgetter
-from pprint import pprint
 
 import splunklib.client as client
 import splunklib.results as results
@@ -31,6 +30,18 @@ handler = logging.handlers.RotatingFileHandler(os.path.join(CWD,'backfill.log'),
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
+
+#############################################
+#   TODO
+#   
+#   Support for multiple savedsearches
+#       Each one should be done in order specified
+#       Same start/end times should apply
+#
+#   CSV writing support, an alternative to summary indexing
+#       Identify todo's
+#
+#############################################
 
 def uncaught_exception_handler(ex_cls, ex, tb):
     logger.error(''.join(traceback.format_tb(tb)))
@@ -84,9 +95,10 @@ def getArgs():
     parser.add_argument('--full',dest='full',help='full update',action='store_true')
     parser.add_argument('--csv',dest='csv',help='write to csv it true, otherwise write to summary index', action='store_true')
     parser.add_argument('--host',dest='host',help='host to connect to, (default = localhost)', default='localhost')
-    parser.add_argument('-s', '--search',dest='search',help='savedsearch name to backfill',required=True)
+    parser.add_argument('-s', '--searches',dest='searches',help='savedsearch name to backfill',required=True,nargs='*')
     parser.add_argument('-et',dest='earliest',help='time to start backfilling at (splunk relative time format)',required=True)
     parser.add_argument('-lt',dest='latest',help='time to stop backfilling at (default: now) (splunk relative time format)',required=False, default='now')
+    parser.add_argument('-j',dest='jobs',help='how many concurrent jobs', required=False, default=1, type=int)
 
     
     return parser.parse_args()
@@ -210,17 +222,21 @@ def main():
 
     service = splunk_auth(host=args.host)
     
-    ss = service.saved_searches[args.search]
-    with JobManager(
-        search=ss, 
-        cron=ss['cron_schedule'], 
-        service=service,
-        csv=args.csv
-    ) as jm:
-        jm.max_jobs = 4
-        jm.start = get_epoch_from_splunk_relative_time(args.earliest)
-        jm.end = get_epoch_from_splunk_relative_time(args.latest)
-        jm.create_jobs()
+    earliest = get_epoch_from_splunk_relative_time(args.earliest)
+    latest = get_epoch_from_splunk_relative_time(args.latest)
+
+    for search in args.searches:
+        ss = service.saved_searches[search]
+        with JobManager(
+            search=ss, 
+            cron=ss['cron_schedule'], 
+            service=service,
+            csv=args.csv
+        ) as jm:
+            jm.max_jobs = args.jobs
+            jm.start = earliest
+            jm.end = latest
+            jm.create_jobs()
 
 if __name__ == '__main__':
     main()
